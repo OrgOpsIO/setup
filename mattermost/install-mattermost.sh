@@ -10,16 +10,17 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# Get the absolute path to the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo -e "${GREEN}Mattermost installation started...${NC}"
 
 # Check if Traefik is running
 echo -e "${YELLOW}Checking for existing Traefik instance...${NC}"
-if docker ps | grep -q "0.0.0.0:80\|0.0.0.0:443\|:::80\|:::443"; then
-    TRAEFIK_RUNNING=true
-    echo -e "${YELLOW}A service is already running on ports 80/443. Traefik will not be started.${NC}"
+if docker ps | grep -q "traefik"; then
+    echo -e "${YELLOW}Traefik is running. Will connect to existing Traefik network.${NC}"
 else
-    TRAEFIK_RUNNING=false
-    echo -e "${YELLOW}No service found on ports 80/443. You should run Traefik first.${NC}"
+    echo -e "${YELLOW}Traefik is not running. It's recommended to install Traefik first.${NC}"
     echo -e "${YELLOW}Do you want to continue anyway? (y/n)${NC}"
     read -r response
     if [[ "$response" != "y" && "$response" != "Y" ]]; then
@@ -39,13 +40,18 @@ mkdir -p volumes/postgres volumes/data volumes/plugins volumes/client-plugins vo
 
 # Copy configuration files
 echo -e "${YELLOW}Copying configuration files...${NC}"
-cp "$(dirname "$0")/docker-compose.yml" ./
-cp "$(dirname "$0")/.env" ./
+if [ -f "${SCRIPT_DIR}/docker-compose.yml" ] && [ -f "${SCRIPT_DIR}/.env" ]; then
+    cp "${SCRIPT_DIR}/docker-compose.yml" ./
+    cp "${SCRIPT_DIR}/.env" ./
+else
+    echo -e "${RED}Configuration files not found in ${SCRIPT_DIR}${NC}"
+    echo -e "${RED}Make sure docker-compose.yml and .env exist in the same directory as this script.${NC}"
+    exit 1
+fi
 
 # Set permissions
 echo -e "${YELLOW}Setting permissions...${NC}"
-# Ensure PostgreSQL directory has correct ownership
-sudo chown -R 999:999 volumes/postgres || true
+sudo chown -R 999:999 volumes/postgres 2>/dev/null || echo -e "${YELLOW}Could not set permissions. This might be an issue on startup.${NC}"
 
 # Ensure the network exists
 echo -e "${YELLOW}Ensuring traefik-proxy network exists...${NC}"
@@ -55,14 +61,21 @@ docker network create traefik-proxy 2>/dev/null || true
 echo -e "${YELLOW}Starting Mattermost...${NC}"
 docker compose up -d
 
-# Success message
-if [ -f ".env" ]; then
-    SUBDOMAIN=$(grep "SUBDOMAIN" .env | cut -d '=' -f2)
-    DOMAIN_NAME=$(grep "DOMAIN_NAME" .env | cut -d '=' -f2)
-    echo -e "${GREEN}Mattermost installation completed!${NC}"
-    echo -e "${GREEN}Your Mattermost instance will be available at: https://$SUBDOMAIN.$DOMAIN_NAME${NC}"
+# Verify Mattermost is running
+if docker ps | grep -q "mattermost"; then
+    # Get domain information from .env file
+    if [ -f ".env" ]; then
+        SUBDOMAIN=$(grep "SUBDOMAIN" .env | cut -d '=' -f2)
+        DOMAIN_NAME=$(grep "DOMAIN_NAME" .env | cut -d '=' -f2)
+        echo -e "${GREEN}Mattermost installation completed successfully!${NC}"
+        echo -e "${GREEN}Your Mattermost instance will be available at: https://$SUBDOMAIN.$DOMAIN_NAME${NC}"
+    else
+        echo -e "${GREEN}Mattermost installation completed successfully!${NC}"
+    fi
 else
-    echo -e "${GREEN}Mattermost installation completed!${NC}"
+    echo -e "${RED}Something went wrong. Mattermost is not running.${NC}"
+    echo -e "${YELLOW}Check the logs with: docker compose logs${NC}"
+    exit 1
 fi
 
 echo -e "${YELLOW}Make sure you have set up DNS records for your domain.${NC}"

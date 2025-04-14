@@ -10,6 +10,9 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Get the absolute path to the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Function to display usage information
 show_help() {
     echo -e "${BLUE}Usage:${NC}"
@@ -31,24 +34,13 @@ show_help() {
 install_traefik() {
     echo -e "${YELLOW}Starting Traefik installation...${NC}"
     
-    # Check if a service is already using ports 80/443
-    if docker ps | grep -q "0.0.0.0:80\|0.0.0.0:443\|:::80\|:::443"; then
-        echo -e "${RED}A service is already using ports 80/443. Traefik installation may fail.${NC}"
-        echo -e "${YELLOW}Do you want to continue? (y/n)${NC}"
-        read -r response
-        if [[ "$response" != "y" && "$response" != "Y" ]]; then
-            echo -e "${RED}Traefik installation aborted.${NC}"
-            return 1
-        fi
-    fi
-    
     # Run the Traefik installation script
-    if [ -f "traefik/install-traefik.sh" ]; then
-        chmod +x traefik/install-traefik.sh
-        ./traefik/install-traefik.sh
+    if [ -f "${SCRIPT_DIR}/traefik/install-traefik.sh" ]; then
+        chmod +x "${SCRIPT_DIR}/traefik/install-traefik.sh"
+        "${SCRIPT_DIR}/traefik/install-traefik.sh"
         return $?
     else
-        echo -e "${RED}Traefik installation script not found.${NC}"
+        echo -e "${RED}Traefik installation script not found at ${SCRIPT_DIR}/traefik/install-traefik.sh${NC}"
         return 1
     fi
 }
@@ -58,12 +50,12 @@ install_n8n() {
     echo -e "${YELLOW}Starting n8n installation...${NC}"
     
     # Run the n8n installation script
-    if [ -f "n8n/install-n8n.sh" ]; then
-        chmod +x n8n/install-n8n.sh
-        ./n8n/install-n8n.sh
+    if [ -f "${SCRIPT_DIR}/n8n/install-n8n.sh" ]; then
+        chmod +x "${SCRIPT_DIR}/n8n/install-n8n.sh"
+        "${SCRIPT_DIR}/n8n/install-n8n.sh"
         return $?
     else
-        echo -e "${RED}n8n installation script not found.${NC}"
+        echo -e "${RED}n8n installation script not found at ${SCRIPT_DIR}/n8n/install-n8n.sh${NC}"
         return 1
     fi
 }
@@ -73,12 +65,12 @@ install_mattermost() {
     echo -e "${YELLOW}Starting Mattermost installation...${NC}"
     
     # Run the Mattermost installation script
-    if [ -f "mattermost/install-mattermost.sh" ]; then
-        chmod +x mattermost/install-mattermost.sh
-        ./mattermost/install-mattermost.sh
+    if [ -f "${SCRIPT_DIR}/mattermost/install-mattermost.sh" ]; then
+        chmod +x "${SCRIPT_DIR}/mattermost/install-mattermost.sh"
+        "${SCRIPT_DIR}/mattermost/install-mattermost.sh"
         return $?
     else
-        echo -e "${RED}Mattermost installation script not found.${NC}"
+        echo -e "${RED}Mattermost installation script not found at ${SCRIPT_DIR}/mattermost/install-mattermost.sh${NC}"
         return 1
     fi
 }
