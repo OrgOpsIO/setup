@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: discourse-db
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - ./volumes/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: discourse-redis
+    restart: always
+    volumes:
+      - ./volumes/redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  discourse:
+    image: bitnami/discourse:latest
+    container_name: discourse
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database Settings
+      - DISCOURSE_DATABASE_HOST=postgres
+      - DISCOURSE_DATABASE_PORT_NUMBER=5432
+      - DISCOURSE_DATABASE_USER=${POSTGRES_USER}
+      - DISCOURSE_DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      - DISCOURSE_DATABASE_NAME=${POSTGRES_DB}
+      # Redis Settings
+      - DISCOURSE_REDIS_HOST=redis
+      - DISCOURSE_REDIS_PORT_NUMBER=6379
+      # SMTP Settings
+      - DISCOURSE_SMTP_HOST=${SMTP_HOST}
+      - DISCOURSE_SMTP_PORT=${SMTP_PORT}
+      - DISCOURSE_SMTP_USER=${SMTP_USER}
+      - DISCOURSE_SMTP_PASSWORD=${SMTP_PASSWORD}
+      - DISCOURSE_SMTP_PROTOCOL=tls
+      # Site Settings
+      - DISCOURSE_HOST=${SUBDOMAIN}.${DOMAIN_NAME}
+      - DISCOURSE_EXTERNAL_HOST=${SUBDOMAIN}.${DOMAIN_NAME}
+      - DISCOURSE_SITE_NAME=${SITE_NAME}
+      - DISCOURSE_USERNAME=${ADMIN_USERNAME}
+      - DISCOURSE_PASSWORD=${ADMIN_PASSWORD}
+      - DISCOURSE_EMAIL=${ADMIN_EMAIL}
+      # Other Settings
+      - DISCOURSE_ENABLE_HTTPS=true
+      - DISCOURSE_WEB_CONCURRENCY=2
+      - DISCOURSE_SIDEKIQ_CONCURRENCY=5
+    volumes:
+      - ./volumes/shared:/bitnami/discourse
+      - ./volumes/plugins:/opt/bitnami/discourse/plugins
+      - ./volumes/public:/opt/bitnami/discourse/public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.discourse.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.discourse.entrypoints=websecure"
+      - "traefik.http.routers.discourse.tls=true"
+      - "traefik.http.routers.discourse.tls.certresolver=letsencrypt"
+      - "traefik.http.services.discourse.loadbalancer.server.port=3000"
+    networks:
+      - internal
+      - traefik-proxy
+
+networks:
+  internal:
+    driver: bridge
+  traefik-proxy:
+    external: true

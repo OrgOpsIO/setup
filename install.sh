@@ -22,6 +22,7 @@ show_help() {
     echo -e "  traefik      - Install only Traefik reverse proxy"
     echo -e "  n8n          - Install only n8n"
     echo -e "  mattermost   - Install only Mattermost"
+    echo -e "  discourse    - Install only Discourse"
     echo -e "  all          - Install all components"
     echo -e "  help         - Show this help"
     echo
@@ -75,13 +76,29 @@ install_mattermost() {
     fi
 }
 
+# Function to install Discourse
+install_discourse() {
+    echo -e "${YELLOW}Starting Discourse installation...${NC}"
+    
+    # Run the Discourse installation script
+    if [ -f "${SCRIPT_DIR}/discourse/install-discourse.sh" ]; then
+        chmod +x "${SCRIPT_DIR}/discourse/install-discourse.sh"
+        "${SCRIPT_DIR}/discourse/install-discourse.sh"
+        return $?
+    else
+        echo -e "${RED}Discourse installation script not found at ${SCRIPT_DIR}/discourse/install-discourse.sh${NC}"
+        return 1
+    fi
+}
+
 # Function to install all components
 install_all() {
     echo -e "${YELLOW}Installing all components...${NC}"
     
-    install_traefik
-    install_n8n
-    install_mattermost
+    install_traefik && \
+    install_n8n && \
+    install_mattermost && \
+    install_discourse
     
     echo -e "${GREEN}All components installed!${NC}"
 }
@@ -96,6 +113,9 @@ case "$1" in
         ;;
     mattermost)
         install_mattermost
+        ;;
+    discourse)
+        install_discourse
         ;;
     all)
         install_all
