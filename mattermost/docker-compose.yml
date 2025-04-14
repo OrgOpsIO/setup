@@ -20,6 +20,7 @@ services:
   mattermost:
     image: mattermost/mattermost-team-edition:latest
     container_name: mattermost
+    user: 2000:2000
     restart: always
     environment:
       - MM_USERNAME=${POSTGRES_USER}

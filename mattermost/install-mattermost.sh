@@ -49,9 +49,22 @@ else
     exit 1
 fi
 
-# Set permissions
-echo -e "${YELLOW}Setting permissions...${NC}"
-sudo chown -R 999:999 volumes/postgres 2>/dev/null || echo -e "${YELLOW}Could not set permissions. This might be an issue on startup.${NC}"
+# Set permissions correctly for all directories
+echo -e "${YELLOW}Setting correct permissions for Mattermost volumes...${NC}"
+sudo chown -R 999:999 volumes/postgres 2>/dev/null || echo -e "${YELLOW}Could not set postgres permissions. This might be an issue on startup.${NC}"
+sudo chown -R 2000:2000 volumes/data volumes/plugins volumes/client-plugins volumes/logs volumes/config 2>/dev/null || echo -e "${YELLOW}Could not set Mattermost permissions. This might be an issue on startup.${NC}"
+
+# Create an initial config.json file with proper permissions
+echo -e "${YELLOW}Creating initial config.json with proper permissions...${NC}"
+cat > volumes/config/config.json << EOJSON
+{
+  "ServiceSettings": {
+    "SiteURL": "",
+    "EnableDeveloper": false
+  }
+}
+EOJSON
+sudo chown 2000:2000 volumes/config/config.json 2>/dev/null || echo -e "${YELLOW}Could not set config.json permissions.${NC}"
 
 # Ensure the network exists
 echo -e "${YELLOW}Ensuring traefik-proxy network exists...${NC}"
@@ -62,6 +75,7 @@ echo -e "${YELLOW}Starting Mattermost...${NC}"
 docker compose up -d
 
 # Verify Mattermost is running
+sleep 10 # Give it a moment to start up
 if docker ps | grep -q "mattermost"; then
     # Get domain information from .env file
     if [ -f ".env" ]; then
@@ -79,5 +93,6 @@ else
 fi
 
 echo -e "${YELLOW}Make sure you have set up DNS records for your domain.${NC}"
+echo -e "${YELLOW}The first user to register will be the system administrator.${NC}"
 
 exit 0
